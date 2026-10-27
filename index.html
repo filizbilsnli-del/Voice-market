@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Səsli Market</title>
+<style>
+*{box-sizing:border-box}
+body{font:19px Arial,sans-serif;background:#f1f5f4;color:#172a25;margin:0;line-height:1.6}
+header{background:#102b27;color:white;padding:18px;text-align:center}
+main{max-width:850px;margin:auto;padding:18px}
+button,select,input{font:inherit;padding:12px;border-radius:9px}
+button{cursor:pointer;border:2px solid #176344;background:#176344;color:white;margin:4px}
+button:focus,input:focus,select:focus{outline:4px solid #ffb900}
+.panel{background:white;border:2px solid #d1ded8;border-radius:14px;padding:18px;margin:15px 0}
+.products{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+.product{border:1px solid #cbd8d2;border-radius:12px;padding:12px;text-align:center}
+.emoji{font-size:40px}
+.price{font-weight:bold;color:#126044}
+#status{background:#d9f5e4;padding:15px;border-radius:10px}
+.high{background:#000;color:#fff}
+.high .panel,.high .product{background:#000;color:#fff;border:2px solid yellow}
+.high .price{color:yellow}
+.big{font-size:25px}
+li{margin:8px 0}
+</style>
+</head>
+<body>
+<header>
+<h1>🛒 Səsli Market</h1>
+<p>Hər kəs üçün əlçatan alış-veriş</p>
+</header>
+<main>
+<section class="panel">
+<h2>Salam! Xoş gəlmisən.</h2>
+<p>Alış-verişini səsinlə et. Məhsulları dinlə, səbətə əlavə et və ümumi qiyməti öyrən.</p>
+<label for="lang">Səs dili:</label>
+<select id="lang">
+<option value="az-AZ">Azərbaycan dili</option>
+<option value="en-US">English</option>
+<option value="ru-RU">Русский</option>
+</select>
+<p>
+<button onclick="listen()">🎙 Danışmağa başla</button>
+<button onclick="say(help)">🔊 Kömək</button>
+<button onclick="document.body.classList.toggle('big')">A+ Böyük yazı</button>
+<button onclick="document.body.classList.toggle('high')">◐ Yüksək kontrast</button>
+</p>
+<p id="status" aria-live="polite">Hazıram. Səsli köməkçini başlat!</p>
+<p><b>Əmrlər:</b> “Çörək”, “Səbətə əlavə et”, “Səbəti göstər”, “Məbləğ”, “Sifarişi tamamla”.</p>
+</section>
+
+<section class="panel">
+<h2>Məhsullar</h2>
+<div class="products" id="products"></div>
+</section>
+
+<section class="panel">
+<h2>🛒 Səbət</h2>
+<ul id="cart"><li>Səbət boşdur.</li></ul>
+<h3>Ümumi məbləğ: <span id="total">0.00</span> AZN</h3>
+<button onclick="clearCart()">Səbəti boşalt</button>
+<button onclick="checkout()">Sifarişi tamamla</button>
+</section>
+
+<section class="panel" id="order" hidden>
+<h2>Çatdırılma məlumatları</h2>
+<form id="form">
+<label>Ad və soyad<br><input required id="name"></label><br><br>
+<label>Telefon<br><input required type="tel" id="phone"></label><br><br>
+<label>Ünvan<br><input required id="address"></label><br><br>
+<p>Ödəniş: çatdırılma zamanı.</p>
+<button type="submit">Sifarişi təsdiqlə</button>
+<button type="button" onclick="document.getElementById('order').hidden=true">Geri</button>
+</form>
+</section>
+</main>
+
+<script>
+const items=[
+ {name:"Çörək",en:"Bread",ru:"Хлеб",price:1.20,emoji:"🍞"},
+ {name:"Süd",en:"Milk",ru:"Молоко",price:1.80,emoji:"🥛"},
+ {name:"Yumurta",en:"Eggs",ru:"Яйца",price:2.50,emoji:"🥚"},
+ {name:"Alma",en:"Apple",ru:"Яблоко",price:2.20,emoji:"🍎"},
+ {name:"Banan",en:"Banana",ru:"Банан",price:1.80,emoji:"🍌"},
+ {name:"Pomidor",en:"Tomato",ru:"Помидор",price:1.50,emoji:"🍅"},
+ {name:"Su",en:"Water",ru:"Вода",price:0.90,emoji:"💧"}
+];
+let basket={};
+let last=null;
+const $=id=>document.getElementById(id);
+const help="Məhsulun adını de. Sonra səbətə əlavə et de. Səbəti göstər, məbləğ və sifarişi tamamla əmrlərindən də istifadə edə bilərsən.";
+function say(text){
+ $("status").textContent=text;
+ if(!("speechSynthesis" in window))return;
+ speechSynthesis.cancel();
+ let u=new SpeechSynthesisUtterance(text);
+ u.lang=$("lang").value;
+ speechSynthesis.speak(u);
+}
+function renderProducts(){
+ $("products").innerHTML="";
+ items.forEach((p,i)=>{
+  let d=document.createElement("div");
+  d.className="product";
+  d.innerHTML=`<div class="emoji">${p.emoji}</div><h3>${p.name}</h3><p class="price">${p.price.toFixed(2)} AZN</p>`;
+  let b=document.createElement("button");
+  b.textContent="Səbətə əlavə et";
+  b.onclick=()=>add(i);
+  d.append(b);$("products").append(d);
+ });
+}
+function add(i){
+ basket[i]=(basket[i]||0)+1;last=i;renderCart();
+ say(items[i].name+", "+items[i].price.toFixed(2)+" manat. Səbətə əlavə edildi.");
+}
+function renderCart(){
+ let ul=$("cart");ul.innerHTML="";
+ let total=0, count=0;
+ Object.keys(basket).forEach(k=>{
+  let p=items[k],q=basket[k];total+=p.price*q;count+=q;
+  let li=document.createElement("li");
+  li.textContent=p.name+" — "+q+" ədəd — "+(p.price*q).toFixed(2)+" AZN ";
+  let b=document.createElement("button");b.textContent="−";
+  b.setAttribute("aria-label",p.name+" sayını azalt");
+  b.onclick=()=>{basket[k]--;if(basket[k]<=0)delete basket[k];renderCart()};
+  let plus=document.createElement("button");plus.textContent="+";
+  plus.setAttribute("aria-label",p.name+" sayını artır");
+  plus.onclick=()=>{basket[k]++;renderCart()};
+  li.append(b,plus);ul.append(li);
+ });
+ if(!count)ul.innerHTML="<li>Səbət boşdur.</li>";
+ $("total").textContent=total.toFixed(2);
+}
+function clearCart(){basket={};renderCart();say("Səbət boşaldıldı.");}
+function checkout(){
+ if(!Object.keys(basket).length){say("Səbət boşdur. Əvvəl məhsul əlavə et.");return;}
+ $("order").hidden=false;$("order").scrollIntoView();
+ say("Adını, telefonunu və ünvanını daxil et. Ödəniş çatdırılma zamanı olacaq.");
+}
+$("form").addEventListener("submit",e=>{
+ e.preventDefault();
+ say($("name").value+", sınaq sifarişin təsdiqləndi. Real sifariş göndərilməyib.");
+ alert("Sınaq sifarişi təsdiqləndi! Bu sayt real sifariş göndərmir.");
+ basket={};renderCart();$("form").reset();$("order").hidden=true;
+});
+function norm(s){
+ return s.toLocaleLowerCase("az")
+ .normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+}
+function listen(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){say("Bu brauzer səsli tanımanı dəstəkləmir. Chrome brauzerini yoxla.");return;}
+ let r=new SR();r.lang=$("lang").value;r.maxAlternatives=1;
+ r.onstart=()=>$("status").textContent="Dinləyirəm...";
+ r.onerror=()=>say("Səsi tanıya bilmədim. Yenidən cəhd et.");
+ r.onresult=e=>command(e.results[0][0].transcript);
+ r.start();
+}
+function command(raw){
+ let s=norm(raw);
+ if(s.includes("kömək")||s.includes("help")){say(help);return;}
+ if(s.includes("səbət")||s.includes("sebet")||s.includes("корзин")||s.includes("cart")){
+  if(s.includes("əlavə")||s.includes("elave")||s.includes("add")||s.includes("добав")){
+   if(last!==null)add(last);else say("Əvvəl məhsulun adını de.");return;
+  }
+  if(s.includes("göstər")||s.includes("goster")||s.includes("show")||s.includes("покажи")){
+   $("cart").scrollIntoView();
+   say("Səbətində "+Object.keys(basket).length+" növ məhsul var. Ümumi məbləğ "+$("total").textContent+" manat.");return;
+  }
+ }
+ if(s.includes("məbləğ")||s.includes("mebleg")||s.includes("total")||s.includes("итого")){
+  say("Ümumi məbləğ "+$("total").textContent+" manat.");return;
+ }
+ if(s.includes("sifariş")||s.includes("sifaris")||s.includes("checkout")||s.includes("заказ")||s.includes("tamamla")){checkout();return;}
+ let p=items.findIndex(x=>[x.name,x.en,x.ru].some(n=>norm(n)===s||s.includes(norm(n))));
+ if(p>=0){last=p;say(items[p].name+". Qiyməti "+items[p].price.toFixed(2)+" manat. Səbətə əlavə etmək üçün səbətə əlavə et de.");return;}
+ say("Bu məhsulu tapa bilmədim. Başqa məhsul de.");
+}
+document.addEventListener("keydown",e=>{
+ if(e.key==="Control"&&!e.repeat&&
+ !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName)){
+  e.preventDefault();listen();
+ }
+});
+$("lang").addEventListener("change",()=>say("Səs dili dəyişdirildi."));
+renderProducts();renderCart();
+</script>
+</body>
+  </html>
